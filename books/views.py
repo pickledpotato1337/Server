@@ -1,290 +1,330 @@
-from django.shortcuts import render
+
 from .models import User, PublicChatRoom, PrivateChatRoom, ChatBan, UserBlock, ChatRoomUser, ChatAdmin
 from .serializers import UserSerializer, PublicChatRoomSerializer, PrivateChatRoomSerializer, ChatBanSerializer,  UserBlockSerializer, ChatRoomUserSerializer, ChatAdminSerializer
-from django.http import JsonResponse
-from rest_framework.parsers import JSONParser
-from rest_framework.response import Response
+
+
 from rest_framework import status
+from django.http import Http404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.http import HttpResponse
+from django.template import loader
+
+from rest_framework.permissions import IsAuthenticated
+
+from django.contrib.auth import logout
 
 
-def User_list(request):
+def index(request):
+    latest_question_list = User.objects.order_by('-userId')[:5]
+    template = loader.get_template('books/index.html')
+    context = {'latest_question_list': latest_question_list,
+               }
+    return HttpResponse(template.render(context, request))
 
-    if request.method == 'GET':
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return JsonResponse(serializer.data, safe=False)
+class User_list(APIView):
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = UserSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+   permission_classes = [IsAuthenticated]
 
+   def get(self, request, format=None):
 
-def User_detail(request, pk, format=None):
+       questions = User.objects.all()
+       serializer = UserSerializer(questions, many=True)
+       return Response(serializer.data)
 
-    try:
-        question = User.objects.get(pk=pk)
-    except User.DoesNotExist:
-        return JsonResponse(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = UserSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
-
-    elif request.method == 'PUT':
-        serializer = UserSerializer(question)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
-
-    elif request.method == 'DELETE':
-        question.delete()
-    return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+   def post(self, request, format=None):
+       serializer = UserSerializer(data=request.data)
+       if serializer.is_valid():
+           serializer.save(owner=self.request.user)
+           return Response(serializer.data, status=status.HTTP_201_CREATED)
+       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def PublicChatRoom_list(request):
+class User_detail(APIView):
+   permission_classes = [IsAuthenticated]
+
+   def get_object(self, pk):
+       try:
+           return User.objects.get(pk=pk)
+       except User.DoesNotExist:
+           raise Http404
+
+   def get(self, request, pk, format=None):
+       question = self.get_object(pk)
+       serializer = UserSerializer(question)
+       return Response(serializer.data)
+
+   def put(self, request, pk, format=None):
+       question = self.get_object(pk)
+       serializer = UserSerializer(question, data=request.data)
+       if serializer.is_valid():
+           serializer.save()
+           return Response(serializer.data)
+       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+   def delete(self, request, pk, format=None):
+       question = self.get_object(pk)
+       question.delete()
+       return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-    if request.method == 'GET':
-        publicChatRoom = PublicChatRoom.objects.all()
-        serializer = PublicChatRoomSerializer(publicChatRoom, many=True)
-        return JsonResponse(serializer.data, safe=False)
+class PublicChatRoom_list(APIView):
+     permission_classes = [IsAuthenticated]
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = PublicChatRoomSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+     def get(self, request, format=None):
+         questions = PublicChatRoom.objects.all()
+         serializer = PublicChatRoomSerializer(questions, many=True)
+         return Response(serializer.data)
+
+     def post(self, request, format=None):
+         serializer = PublicChatRoomSerializer(data=request.data)
+         if serializer.is_valid():
+             serializer.save(owner=self.request.user)
+             return Response(serializer.data, status=status.HTTP_201_CREATED)
+         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def PublicChatRoom_detail(request, pk, format=None):
+class PublicChatRoom_detail(APIView):
+    permission_classes = [IsAuthenticated]
 
-    try:
-        question = PublicChatRoom.objects.get(pk=pk)
-    except PublicChatRoom.DoesNotExist:
-        return JsonResponse(status=status.HTTP_404_NOT_FOUND)
+    def get_object(self, pk):
+        try:
+            return PublicChatRoom.objects.get(pk=pk)
+        except PublicChatRoom.DoesNotExist:
+            raise Http404
 
-    if request.method == 'GET':
-
+    def get(self, request, pk, format=None):
+        question = self.get_object(pk)
         serializer = PublicChatRoomSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
+        return Response(serializer.data)
 
-    elif request.method == 'PUT':
-
-        serializer = PublicChatRoomSerializer(question)
+    def put(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = PublicChatRoomSerializer(question, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
+    def delete(self, request, pk, format=None):
+        question = self.get_object(pk)
         question.delete()
-    return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-def PrivateChatRoom_list(request):
+class PrivateChatRoom_list(APIView):
+    permission_classes = [IsAuthenticated]
 
-    if request.method == 'GET':
-        privateChatRoom = PrivateChatRoom.objects.all()
-        serializer = PrivateChatRoomSerializer(privateChatRoom, many=True)
-        return JsonResponse(serializer.data, safe=False)
+    def get(self, request, format=None):
+        questions = PrivateChatRoom.objects.all()
+        serializer = PrivateChatRoomSerializer(questions, many=True)
+        return Response(serializer.data)
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = PrivateChatRoomSerializer(data=data)
+    def post(self, request, format=None):
+        serializer = PrivateChatRoomSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            serializer.save(owner=self.request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class PrivateChatRoom_detail(APIView):
 
-def PrivateChatRoom_detail(request, pk, format=None):
+    permission_classes = [IsAuthenticated]
 
-    try:
-        question = PrivateChatRoom.objects.get(pk=pk)
-    except PrivateChatRoom.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
+    def get_object(self, pk):
+        try:
+            return PrivateChatRoom.objects.get(pk=pk)
+        except PrivateChatRoom.DoesNotExist:
+            raise Http404
 
-    if request.method == 'GET':
+    def get(self, request, pk, format=None):
+        question = self.get_object(pk)
         serializer = PrivateChatRoomSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
+        return Response(serializer.data)
 
-    elif request.method == 'PUT':
-
-        serializer = PrivateChatRoomSerializer(question)
+    def put(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = PrivateChatRoomSerializer(question, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
+    def delete(self, request, pk, format=None):
+        question = self.get_object(pk)
         question.delete()
-    return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
+class ChatBan_list(APIView):
 
-def ChatBan_list(request):
+    permission_classes = [IsAuthenticated]
 
-    if request.method == 'GET':
-        chatBan = ChatBan.objects.all()
-        serializer = ChatBanSerializer(chatBan, many=True)
-        return JsonResponse(serializer.data, safe=False)
+    def get(self, request, format=None):
+        questions = ChatBan.objects.all()
+        serializer = ChatBanSerializer(questions, many=True)
+        return Response(serializer.data)
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = ChatBanSerializer(data=data)
+    def post(self, request, format=None):
+        serializer = ChatBanSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            serializer.save(owner=self.request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class ChatBan_detail(APIView):
+    permission_classes = [IsAuthenticated]
 
-def ChatBan_detail(request, pk, format=None):
+    def get_object(self, pk):
+        try:
+            return ChatBan.objects.get(pk=pk)
+        except ChatBan.DoesNotExist:
+            raise Http404
 
-    try:
-        question = ChatBan.objects.get(pk=pk)
-    except ChatBan.DoesNotExist:
-        return JsonResponse(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-
+    def get(self, request, pk, format=None):
+        question = self.get_object(pk)
         serializer = ChatBanSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
+        return Response(serializer.data)
 
-    elif request.method == 'PUT':
-
-        serializer = ChatBanSerializer(question)
+    def put(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = ChatBanSerializer(question, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
+    def delete(self, request, pk, format=None):
+        question = self.get_object(pk)
         question.delete()
-    return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
+class UserBlock_list(APIView):
+    permission_classes = [IsAuthenticated]
 
-def UserBlock_list(request):
+    def get(self, request, format=None):
+        questions = UserBlock.objects.all()
+        serializer = UserBlockSerializer(questions, many=True)
+        return Response(serializer.data)
 
-    if request.method == 'GET':
-        userBlock = UserBlock.objects.all()
-        serializer = UserBlockSerializer(userBlock, many=True)
-        return JsonResponse(serializer.data, safe=False)
-
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = UserBlockSerializer(data=data)
+    def post(self, request, format=None):
+        serializer = UserBlockSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            serializer.save(owner=self.request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class UserBlock_detail(APIView):
+    permission_classes = [IsAuthenticated]
 
-def UserBlock_detail(request, pk, format=None):
-    try:
-        question = UserBlock.objects.get(pk=pk)
-    except UserBlock.DoesNotExist:
-        return JsonResponse(status=status.HTTP_404_NOT_FOUND)
+    def get_object(self, pk):
+        try:
+            return UserBlock.objects.get(pk=pk)
+        except UserBlock.DoesNotExist:
+            raise Http404
 
-    if request.method == 'GET':
-
+    def get(self, request, pk, format=None):
+        question = self.get_object(pk)
         serializer = UserBlockSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
+        return Response(serializer.data)
 
-    elif request.method == 'PUT':
-        serializer = UserBlockSerializer(question)
+    def put(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = UserBlockSerializer(question, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
+    def delete(self, request, pk, format=None):
+        question = self.get_object(pk)
         question.delete()
-    return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+class ChatRoomUser_list(APIView):
+
+    permission_classes = [IsAuthenticated]
 
 
-def ChatRoomUser_list(request):
+    def get(self, request, format=None):
+        questions = ChatRoomUser.objects.all()
+        serializer = ChatRoomUserSerializer(questions, many=True)
+        return Response(serializer.data)
 
-    if request.method == 'GET':
-        chatRoomUser = ChatRoomUser.objects.all()
-        serializer = ChatRoomUserSerializer(chatRoomUser, many=True)
-        return JsonResponse(serializer.data, safe=False)
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = ChatRoomUserSerializer(data=data)
+    def post(self, request, format=None):
+        serializer = ChatRoomUserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            serializer.save(owner=self.request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class ChatRoomUser_detail(APIView):
+    permission_classes = [IsAuthenticated]
 
-def ChatRoomUser_detail(request, pk, format=None):
+    def get_object(self, pk):
+        try:
+            return ChatRoomUser.objects.get(pk=pk)
+        except ChatRoomUser.DoesNotExist:
+            raise Http404
 
-    try:
-        question = ChatRoomUser.objects.get(pk=pk)
-    except ChatRoomUser.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-
+    def get(self, request, pk, format=None):
+        question = self.get_object(pk)
         serializer = ChatRoomUserSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
+        return Response(serializer.data)
 
-    elif request.method == 'PUT':
-        serializer = ChatRoomUserSerializer(question)
+    def put(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = ChatRoomUserSerializer(question, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'DELETE':
+    def delete(self, request, pk, format=None):
+        question = self.get_object(pk)
         question.delete()
-        return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
+class ChatAdmin_list(APIView):
+    permission_classes = [IsAuthenticated]
 
-def ChatAdmin_list(request):
+    def get(self, request, format=None):
+        questions = ChatAdmin.objects.all()
+        serializer = ChatAdminSerializer(questions, many=True)
+        return Response(serializer.data)
 
-    if request.method == 'GET':
-        admin = ChatAdmin.objects.all()
-        serializer = ChatAdminSerializer(admin, many=True)
-        return JsonResponse(serializer.data, safe=False)
+    def post(self, request, format=None):
+        serializer = ChatAdminSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(owner=self.request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    elif request.method == 'POST':
-        data = JSONParser().parse(request)
-        serializer = ChatAdminSerializer(data=data)
+class ChatAdmin_detail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, pk):
+        try:
+            return ChatAdmin.objects.get(pk=pk)
+        except ChatAdmin.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = ChatAdminSerializer(question)
+        return Response(serializer.data)
+
+    def put(self, request, pk, format=None):
+        question = self.get_object(pk)
+        serializer = ChatAdminSerializer(question, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-def ChatAdmin_detail(request, pk, format=None):
-
-    try:
-        question = ChatAdmin.objects.get(pk=pk)
-    except ChatAdmin.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-
-        serializer = ChatAdminSerializer(question)
-        return JsonResponse(serializer.data, safe=False)
-
-    elif request.method == 'PUT':
-
-        serializer = ChatAdminSerializer(question)
-        if serializer.is_valid():
-            serializer.save()
-            return JsonResponse(serializer.data, status=201)
-        return JsonResponse(serializer.errors, status=400)
-
-    elif request.method == 'DELETE':
+    def delete(self, request, pk, format=None):
+        question = self.get_object(pk)
         question.delete()
-    return JsonResponse(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 

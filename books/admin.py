@@ -10,6 +10,7 @@ from .models import UserBlock
 from .models import User
 
 admin.site.register(PrivateChatRoom)
+
 admin.site.register(PublicChatRoom)
 admin.site.register(ChatRoomUser)
 admin.site.register(ChatAdmin)

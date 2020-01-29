@@ -16,10 +16,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from books import views
-from django.conf.urls import url, include
+from django.conf.urls import include
 from django.views.decorators.csrf import csrf_exempt
 
 urlpatterns = [
-url('',include('books.urls')),
-url(r'^admin/', admin.site.urls),
+
+    path('admin/', admin.site.urls),
+    path('books/', include('books.urls')),
+    path('', include('rest_framework.urls')),
+
+
 ]

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Starting site</title>
+</head>
+<body>
+{% if latest_question_list %}
+    <ul>
+    {% for user in latest_question_list %}
+        <li><a href="/books/{{ user.id }}/">{{ user.username }}</a></li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No users are available.</p>
+{% endif %}
+
+</body>
+</html>

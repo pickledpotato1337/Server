@@ -1,8 +1,6 @@
 from django.db import models
 
 
-# Create your models here.
-
 class PublicChatRoom(models.Model):
     chatId = models.IntegerField()
     chatName = models.CharField(max_length=45)
